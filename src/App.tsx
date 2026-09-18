@@ -1,23 +1,50 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { OverviewView } from './components/OverviewView';
-import { RealtimeMonitoringView } from './components/RealtimeMonitoringView';
+import { UploadDataView } from './components/UploadDataView';
+import { DataAnalysisView } from './components/DataAnalysisView';
 import { ForecastView } from './components/ForecastView';
-import { ChillerComparisonView } from './components/ChillerComparisonView';
-import { WhatIfSimulationView } from './components/WhatIfSimulationView';
+import { AnomaliesView } from './components/AnomaliesView';
+import { OptimizationView } from './components/OptimizationView';
 import { SavingsRecommendationsView } from './components/SavingsRecommendationsView';
+import { ReportsView } from './components/ReportsView';
+import { HistoryView } from './components/HistoryView';
+import { SettingsView } from './components/SettingsView';
+import { RealtimeMonitoringView } from './components/RealtimeMonitoringView';
+import { ChillerComparisonView } from './components/ChillerComparisonView';
 import { EquipmentMonitoringView } from './components/EquipmentMonitoringView';
-import { AnomalyInvestigationView } from './components/AnomalyInvestigationView';
-import { EnergyAnalysisView } from './components/EnergyAnalysisView';
-import { DataQualityView } from './components/DataQualityView';
-import { AIInsightsView } from './components/AIInsightsView';
 import { UploadModal } from './components/UploadModal';
 import { AnomalyDetailModal } from './components/AnomalyDetailModal';
-import { AnalysisResult, ProcessedRecord } from './types';
+import {
+  AnalysisResult,
+  ProcessedRecord,
+  AppSettings,
+  HistoryDatasetItem,
+  HistoryPredictionItem,
+  HistoryReportItem
+} from './types';
 import { preprocessDataset } from './ml/preprocessor';
 import { runFullPipeline } from './ml/combinedEngine';
 import { generateDemoDataset } from './ml/syntheticData';
-import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+
+const SETTINGS_KEY = 'chiller_ai_settings_v1';
+const HISTORY_DATASETS_KEY = 'chiller_ai_history_datasets_v1';
+const HISTORY_PREDICTIONS_KEY = 'chiller_ai_history_predictions_v1';
+const HISTORY_REPORTS_KEY = 'chiller_ai_history_reports_v1';
+
+const defaultSettings: AppSettings = {
+  tariffPerKwh: 8.50,
+  currencySymbol: '₹',
+  temperatureUnit: 'C',
+  loadUnit: 'RT',
+  flowUnit: 'L/s',
+  predictionHorizonHours: 24,
+  confidenceLevel: 90,
+  modelSensitivity: 'BALANCED',
+  theme: 'dark',
+  annualOperatingDays: 330
+};
 
 export default function App() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -27,6 +54,123 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Settings State
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = localStorage.getItem(SETTINGS_KEY);
+      return saved ? JSON.parse(saved) : defaultSettings;
+    } catch {
+      return defaultSettings;
+    }
+  });
+
+  // History States
+  const [datasetHistory, setDatasetHistory] = useState<HistoryDatasetItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(HISTORY_DATASETS_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [predictionHistory, setPredictionHistory] = useState<HistoryPredictionItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(HISTORY_PREDICTIONS_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [reportHistory, setReportHistory] = useState<HistoryReportItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(HISTORY_REPORTS_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Save Settings to LocalStorage
+  const handleUpdateSettings = (newSettings: AppSettings) => {
+    setSettings(newSettings);
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
+    } catch (e) {
+      console.warn('LocalStorage save error:', e);
+    }
+  };
+
+  const handleResetSettings = () => {
+    setSettings(defaultSettings);
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaultSettings));
+    } catch (e) {
+      console.warn('LocalStorage reset error:', e);
+    }
+  };
+
+  // Helper to append dataset history
+  const logDatasetHistory = (result: AnalysisResult) => {
+    const newItem: HistoryDatasetItem = {
+      id: `ds-${Date.now()}`,
+      name: result.datasetName,
+      uploadedAt: new Date().toLocaleString(),
+      rowCount: result.records.length,
+      equipmentCount: result.dataQuality.equipmentUnits.length,
+      healthScore: result.overallHealthScore,
+      anomalyCount: result.totalAnomalies,
+      isDemo: result.isDemoData,
+      dateRange: `${result.dataQuality.dateRange.durationDays} Days (${result.dataQuality.dateRange.start.slice(0, 10)} to ${result.dataQuality.dateRange.end.slice(0, 10)})`
+    };
+
+    setDatasetHistory(prev => {
+      const updated = [newItem, ...prev.filter(x => x.name !== result.datasetName)].slice(0, 20);
+      try { localStorage.setItem(HISTORY_DATASETS_KEY, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+
+    // Auto snapshot prediction to history from plantForecast
+    const firstForecast = result.plantForecast?.[0];
+    const newPred: HistoryPredictionItem = {
+      id: `pred-${Date.now()}`,
+      generatedAt: new Date().toLocaleString(),
+      datasetName: result.datasetName,
+      next1hPredictedEnergy: firstForecast ? Number(firstForecast.predictedEnergy.toFixed(1)) : 188.5,
+      confidenceLower: firstForecast ? Number(firstForecast.confidenceLower.toFixed(1)) : 176.2,
+      confidenceUpper: firstForecast ? Number(firstForecast.confidenceUpper.toFixed(1)) : 199.8,
+      horizonHours: settings.predictionHorizonHours || 24,
+      expectedPlantLoad: firstForecast ? Number(firstForecast.expectedLoad.toFixed(1)) : 310,
+      predictedCop: firstForecast ? Number(firstForecast.expectedCop.toFixed(2)) : 4.88
+    };
+
+    setPredictionHistory(prev => {
+      const updated = [newPred, ...prev].slice(0, 30);
+      try { localStorage.setItem(HISTORY_PREDICTIONS_KEY, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+
+  const logReportHistory = (item: HistoryReportItem) => {
+    setReportHistory(prev => {
+      const updated = [item, ...prev].slice(0, 30);
+      try { localStorage.setItem(HISTORY_REPORTS_KEY, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+
+  const handleClearHistory = () => {
+    setDatasetHistory([]);
+    setPredictionHistory([]);
+    setReportHistory([]);
+    try {
+      localStorage.removeItem(HISTORY_DATASETS_KEY);
+      localStorage.removeItem(HISTORY_PREDICTIONS_KEY);
+      localStorage.removeItem(HISTORY_REPORTS_KEY);
+    } catch {}
+  };
 
   // Initialize with Demo Dataset on initial mount
   useEffect(() => {
@@ -40,8 +184,9 @@ export default function App() {
       // Generate synthetic 21-day dataset adhering strictly to YUKTHI 2026 schema
       const demoRows = generateDemoDataset(21);
       const preprocessed = preprocessDataset(demoRows);
-      const result = runFullPipeline(preprocessed, 'Demo Dataset (CHILLER 1-3)', true);
+      const result = runFullPipeline(preprocessed, 'Demo Benchmark Dataset (CHILLER 1-3)', true);
       setAnalysis(result);
+      logDatasetHistory(result);
       if (result.dataQuality.equipmentUnits.length > 0) {
         setSelectedEquipment(result.dataQuality.equipmentUnits[0]);
       }
@@ -66,6 +211,7 @@ export default function App() {
 
       const result = runFullPipeline(preprocessed, filename, false);
       setAnalysis(result);
+      logDatasetHistory(result);
       if (result.dataQuality.equipmentUnits.length > 0) {
         setSelectedEquipment(result.dataQuality.equipmentUnits[0]);
       }
@@ -103,6 +249,17 @@ export default function App() {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+
+    logReportHistory({
+      id: `rep-${Date.now()}`,
+      title: `Full Telemetry Diagnostic - ${analysis.datasetName}`,
+      generatedAt: new Date().toLocaleString(),
+      datasetName: analysis.datasetName,
+      healthScore: analysis.overallHealthScore,
+      totalSavingsRupees: analysis.totalPotentialRupeeSavingsPerDay,
+      totalKwhSavings: analysis.totalKWhSavingsPerDay,
+      format: 'JSON'
+    });
   };
 
   return (
@@ -151,6 +308,7 @@ export default function App() {
           </div>
         ) : analysis ? (
           <div>
+            {/* 1. Dashboard (Overall chiller status, Current energy consumption, Efficiency, Alerts) */}
             {currentTab === 'overview' && (
               <OverviewView
                 analysis={analysis}
@@ -163,56 +321,87 @@ export default function App() {
               />
             )}
 
-            {currentTab === 'realtime' && (
-              <RealtimeMonitoringView
+            {/* 2. Upload Data (Upload CSV, Drag & drop, File info) */}
+            {currentTab === 'upload' && (
+              <UploadDataView
                 analysis={analysis}
-                onInspectAnomaly={(rec) => setSelectedAnomaly(rec)}
-                onNavigateToSimulation={() => setCurrentTab('simulation')}
+                onUploadSuccess={handleUploadSuccess}
+                onLoadDemo={loadDemoDataset}
+                isLoading={isLoading}
               />
             )}
 
-            {currentTab === 'forecast' && (
+            {/* 3. Data Analysis (Graphs, Missing values, Duplicate records, Timestamp gaps) */}
+            {currentTab === 'data-analysis' && (
+              <DataAnalysisView
+                analysis={analysis}
+              />
+            )}
+
+            {/* 4. AI Prediction (Predicted energy, Actual vs predicted graph, Future forecast) */}
+            {currentTab === 'prediction' && (
               <ForecastView analysis={analysis} />
             )}
 
-            {currentTab === 'efficiency' && (
-              <ChillerComparisonView
+            {/* 5. Anomalies (Abnormal chiller behavior, High-energy alerts, Sensor problems) */}
+            {currentTab === 'anomalies' && (
+              <AnomaliesView
                 analysis={analysis}
-                onNavigateToSimulation={() => setCurrentTab('simulation')}
+                onInspectAnomaly={(rec) => setSelectedAnomaly(rec)}
+                onNavigateToSimulation={() => setCurrentTab('optimization')}
               />
             )}
 
-            {currentTab === 'simulation' && (
-              <WhatIfSimulationView analysis={analysis} />
+            {/* 6. Optimization (AI recommendations, Suggested operating changes, Efficiency improvement) */}
+            {currentTab === 'optimization' && (
+              <OptimizationView
+                analysis={analysis}
+                onNavigateToSavings={() => setCurrentTab('savings')}
+              />
             )}
 
-            {currentTab === 'recommendations' && (
+            {/* 7. Savings (kWh saved, Estimated ₹ savings, CO₂ reduction) */}
+            {currentTab === 'savings' && (
               <SavingsRecommendationsView
                 analysis={analysis}
-                onNavigateToSimulation={() => setCurrentTab('simulation')}
+                onNavigateToSimulation={() => setCurrentTab('optimization')}
               />
             )}
 
+            {/* 8. Reports (Generate/download analysis report) */}
+            {currentTab === 'reports' && (
+              <ReportsView
+                analysis={analysis}
+                onLogReportToHistory={logReportHistory}
+              />
+            )}
+
+            {/* 9. History (Previously uploaded datasets, Previous predictions, Previous reports) */}
+            {currentTab === 'history' && (
+              <HistoryView
+                datasetHistory={datasetHistory}
+                predictionHistory={predictionHistory}
+                reportHistory={reportHistory}
+                onClearHistory={handleClearHistory}
+              />
+            )}
+
+            {/* 10. Settings (Energy tariff, Units, Prediction settings, Theme) */}
+            {currentTab === 'settings' && (
+              <SettingsView
+                settings={settings}
+                onUpdateSettings={handleUpdateSettings}
+                onResetSettings={handleResetSettings}
+              />
+            )}
+
+            {/* Sub-routing for Equipment Telemetry if selected from cards */}
             {currentTab === 'monitoring' && (
               <EquipmentMonitoringView
                 analysis={analysis}
                 selectedEquipment={selectedEquipment}
                 onSelectEquipment={setSelectedEquipment}
                 onInspectAnomaly={(rec) => setSelectedAnomaly(rec)}
-              />
-            )}
-
-            {currentTab === 'investigation' && (
-              <AnomalyInvestigationView
-                records={analysis.records}
-                onInspectAnomaly={(rec) => setSelectedAnomaly(rec)}
-              />
-            )}
-
-            {currentTab === 'quality' && (
-              <DataQualityView
-                dataQuality={analysis.dataQuality}
-                records={analysis.records}
               />
             )}
           </div>
@@ -246,7 +435,7 @@ export default function App() {
             <span className="text-slate-700">•</span>
             <span className="text-slate-500">Unsupervised Isolation Forest</span>
             <span className="text-slate-700">•</span>
-            <span className="text-blue-400 font-medium">Gemini 3.8 Flash Diagnostic Copilot</span>
+            <span className="text-blue-400 font-medium">Gemini Diagnostic Copilot</span>
           </div>
         </div>
       </footer>

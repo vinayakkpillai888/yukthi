@@ -15,7 +15,12 @@ import {
   TrendingUp,
   Sliders,
   Leaf,
-  Bell
+  Bell,
+  LayoutDashboard,
+  FolderOpen,
+  DollarSign,
+  Clock,
+  Settings
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -46,15 +51,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   isLoading
 }) => {
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: Layers },
-    { id: 'realtime', label: 'Real-Time & Alerts', icon: Bell, badge: alertCount > 0 ? alertCount : undefined },
-    { id: 'forecast', label: 'Energy Prediction', icon: TrendingUp },
-    { id: 'efficiency', label: 'Efficiency & COP', icon: Activity },
-    { id: 'simulation', label: 'What-If Simulation', icon: Sliders },
-    { id: 'recommendations', label: 'Energy Savings', icon: Leaf },
-    { id: 'monitoring', label: 'Equipment Telemetry', icon: BarChart3 },
-    { id: 'investigation', label: 'Anomaly Investigation', icon: Search },
-    { id: 'quality', label: 'Data Quality', icon: Database }
+    { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'upload', label: 'Upload Data', icon: FolderOpen },
+    { id: 'data-analysis', label: 'Data Analysis', icon: BarChart3 },
+    { id: 'prediction', label: 'AI Prediction', icon: TrendingUp },
+    { id: 'anomalies', label: 'Anomalies', icon: AlertTriangle, badge: alertCount > 0 ? alertCount : undefined },
+    { id: 'optimization', label: 'Optimization', icon: Sliders },
+    { id: 'savings', label: 'Savings', icon: DollarSign },
+    { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'history', label: 'History', icon: Clock },
+    { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
   return (

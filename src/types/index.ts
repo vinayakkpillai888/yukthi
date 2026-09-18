@@ -211,3 +211,51 @@ export interface AnalysisResult {
   totalKWhSavingsPerDay: number;
   totalCo2SavingsKgPerDay: number;
 }
+
+export interface AppSettings {
+  tariffPerKwh: number;            // ₹ per kWh (default 8.5)
+  currencySymbol: string;          // '₹'
+  temperatureUnit: 'C' | 'F';      // Celsius or Fahrenheit
+  loadUnit: 'RT' | 'kW';           // Refrigeration Tons or Thermal kW
+  flowUnit: 'L/s' | 'GPM';         // Litres per second or Gallons per minute
+  predictionHorizonHours: number;  // 12, 24, 48
+  confidenceLevel: number;         // 90, 95, 99
+  modelSensitivity: 'HIGH' | 'BALANCED' | 'CONSERVATIVE';
+  theme: 'dark' | 'light' | 'high-contrast';
+  annualOperatingDays: number;     // e.g. 330 days/year
+}
+
+export interface HistoryDatasetItem {
+  id: string;
+  name: string;
+  uploadedAt: string;
+  rowCount: number;
+  healthScore: number;
+  anomalyCount: number;
+  equipmentCount: number;
+  isDemo: boolean;
+  dateRange: string;
+}
+
+export interface HistoryPredictionItem {
+  id: string;
+  generatedAt: string;
+  datasetName: string;
+  horizonHours: number;
+  next1hPredictedEnergy: number;
+  predictedCop: number;
+  confidenceLower: number;
+  confidenceUpper: number;
+  expectedPlantLoad: number;
+}
+
+export interface HistoryReportItem {
+  id: string;
+  title: string;
+  generatedAt: string;
+  datasetName: string;
+  healthScore: number;
+  totalSavingsRupees: number;
+  totalKwhSavings: number;
+  format: 'PDF' | 'CSV' | 'JSON';
+}

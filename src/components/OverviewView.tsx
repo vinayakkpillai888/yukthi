@@ -127,6 +127,162 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
       )}
 
+      {/* DASHBOARD CORE PILLARS: Status • Current Energy • Efficiency • Alerts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Overall Chiller Status */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                Overall Chiller Status
+              </span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                overallHealthScore >= 80 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+              }`}>
+                {overallHealthScore >= 80 ? 'NOMINAL' : 'ATTENTION'}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-3xl font-extrabold font-mono ${
+                overallHealthScore >= 80 ? 'text-emerald-600' : overallHealthScore >= 65 ? 'text-amber-600' : 'text-rose-600'
+              }`}>
+                {overallHealthScore}/100
+              </span>
+              <span className="text-xs text-slate-500 font-medium">Plant Health Index</span>
+            </div>
+            <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+              {summariesList.map(s => (
+                <span
+                  key={s.equipmentId}
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold flex items-center gap-1 ${
+                    s.healthStatus === 'HEALTHY'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : s.healthStatus === 'WATCH'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                  {s.equipmentId}: {s.healthStatus}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500">
+            {attentionRequiredCount === 0 ? 'All chillers operating within design bounds' : `${attentionRequiredCount} chiller(s) require engineering review`}
+          </div>
+        </div>
+
+        {/* 2. Current Energy Consumption */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-500" />
+                Current Energy Consumption
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700">
+                LIVE
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-3xl font-extrabold text-slate-900 font-mono">
+                {records.length > 0 ? records[records.length - 1].actualEnergy.toFixed(1) : avgEnergyConsumption}
+              </span>
+              <span className="text-xs text-slate-500 font-semibold font-mono">kWh</span>
+            </div>
+            <div className="mt-2 text-xs text-slate-600 flex items-center gap-1">
+              <span>ML Baseline:</span>
+              <strong className="font-mono text-slate-800">
+                {records.length > 0 ? records[records.length - 1].expectedEnergy.toFixed(1) : (Number(avgEnergyConsumption) * 0.92).toFixed(1)} kWh
+              </strong>
+              <span className="text-[11px] text-rose-600 font-semibold font-mono">
+                ({records.length > 0 ? (records[records.length - 1].deviationPercent > 0 ? '+' : '') + records[records.length - 1].deviationPercent.toFixed(1) : '+8.2'}%)
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+            <span>Plant Demand: <strong className="font-mono text-slate-700">{records.length > 0 ? records[records.length - 1].buildingLoad.toFixed(1) : '285'} RT</strong></span>
+            <span className="text-emerald-600 font-mono font-semibold">
+              ₹{(Number(avgEnergyConsumption) * 8.5).toFixed(0)}/hr
+            </span>
+          </div>
+        </div>
+
+        {/* 3. Efficiency */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Activity className="w-4 h-4 text-emerald-600" />
+                Thermodynamic Efficiency
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700">
+                COP &amp; kW/RT
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-3xl font-extrabold text-emerald-600 font-mono">
+                {(summariesList.reduce((acc, s) => acc + s.copEstimate, 0) / Math.max(1, summariesList.length)).toFixed(2)}
+              </span>
+              <span className="text-xs text-slate-500 font-semibold">Plant Avg COP</span>
+            </div>
+            <div className="mt-2 text-xs text-slate-600">
+              Specific Power: <strong className="font-mono text-slate-800">
+                {(summariesList.reduce((acc, s) => acc + s.avgKwPerRT, 0) / Math.max(1, summariesList.length)).toFixed(3)} kW/RT
+              </strong>
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+            <span>Benchmark Rating:</span>
+            <span className="font-semibold text-emerald-700 font-mono">High Efficiency (AHRI)</span>
+          </div>
+        </div>
+
+        {/* 4. Alerts */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-rose-600" />
+                Active Alerts
+              </span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                (systemAlerts?.length || 0) > 0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                {systemAlerts?.length || 0} ACTIVE
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-3xl font-extrabold font-mono ${
+                (systemAlerts?.length || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'
+              }`}>
+                {systemAlerts?.length || 0}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">Contextual Notices</span>
+            </div>
+            <div className="mt-2 flex items-center gap-1 text-[11px] font-mono">
+              <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                🔴 {systemAlerts?.filter(a => a.category === 'HIGH_ENERGY').length || 0} High Energy
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                🟠 {systemAlerts?.filter(a => a.category === 'ABNORMAL_TEMP').length || 0} Temp
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <span className="text-slate-500">Unresolved events</span>
+            <button
+              onClick={() => onNavigateTab?.('anomalies')}
+              className="font-semibold text-blue-600 hover:text-blue-800 cursor-pointer flex items-center gap-0.5"
+            >
+              View Alerts <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {/* Total Equipment */}

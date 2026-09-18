@@ -1,0 +1,6 @@
+{
+  "name": "CHILLER AI – Intelligent Energy & Equipment Monitoring",
+  "description": "Intelligent energy and equipment monitoring system for industrial chillers featuring contextual ML energy regression, multivariate isolation forest anomaly detection, health scoring, and actionable recommendations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
